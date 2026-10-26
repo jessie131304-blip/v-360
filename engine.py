@@ -1,5 +1,5 @@
 
-import sqlite3, json, uuid, os
+import sqlite3, json, uuid, os, urllib.request, urllib.error
 from datetime import datetime, timezone
 
 BASE = os.path.dirname(__file__)
@@ -67,6 +67,16 @@ def init_db():
       action TEXT, created_at TEXT, status TEXT
     );
     """)
+    # Lightweight schema migration for AI Orchestrator evidence.
+    existing = {r[1] for r in c.execute("PRAGMA table_info(cases)").fetchall()}
+    for col, ddl in [
+        ("ai_orchestrator_mode", "TEXT"),
+        ("ai_next_action", "TEXT"),
+        ("ai_reason", "TEXT"),
+        ("ai_model", "TEXT")
+    ]:
+        if col not in existing:
+            c.execute(f"ALTER TABLE cases ADD COLUMN {col} {ddl}")
     c.commit(); c.close()
 
 def log(case_id,agent,action,decision,tool,stage):
@@ -75,20 +85,31 @@ def log(case_id,agent,action,decision,tool,stage):
 
 def save(d):
     c=db()
-    c.execute("""
-    INSERT INTO cases VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(case_id) DO UPDATE SET
-    updated_at=excluded.updated_at,review_text=excluded.review_text,source=excluded.source,rating=excluded.rating,
-    sentiment=excluded.sentiment,confidence=excluded.confidence,issues=excluded.issues,severity=excluded.severity,
-    primary_department=excluded.primary_department,secondary_departments=excluded.secondary_departments,
-    recommended_action=excluded.recommended_action,current_stage=excluded.current_stage,human_approval=excluded.human_approval,
-    human_decision=excluded.human_decision,exception_type=excluded.exception_type,replan_count=excluded.replan_count,
-    status=excluded.status,final_outcome=excluded.final_outcome
-    """,(d["case_id"],d["created_at"],d["updated_at"],d["review_text"],d["source"],d["rating"],d.get("sentiment"),
-         d.get("confidence"),json.dumps(d.get("issues",[])),d.get("severity"),d.get("primary_department"),
-         json.dumps(d.get("secondary_departments",[])),d.get("recommended_action"),d.get("current_stage"),
-         d.get("human_approval"),d.get("human_decision"),d.get("exception_type"),d.get("replan_count",0),
-         d.get("status"),d.get("final_outcome")))
+    fields = [
+        "case_id","created_at","updated_at","review_text","source","rating",
+        "sentiment","confidence","issues","severity","primary_department",
+        "secondary_departments","recommended_action","current_stage",
+        "human_approval","human_decision","exception_type","replan_count",
+        "status","final_outcome","ai_orchestrator_mode","ai_next_action",
+        "ai_reason","ai_model"
+    ]
+    vals = [
+        d.get("case_id"),d.get("created_at"),d.get("updated_at"),d.get("review_text"),
+        d.get("source"),d.get("rating"),d.get("sentiment"),d.get("confidence"),
+        json.dumps(d.get("issues",[])),d.get("severity"),d.get("primary_department"),
+        json.dumps(d.get("secondary_departments",[])),d.get("recommended_action"),
+        d.get("current_stage"),d.get("human_approval"),d.get("human_decision"),
+        d.get("exception_type"),d.get("replan_count",0),d.get("status"),
+        d.get("final_outcome"),d.get("ai_orchestrator_mode"),d.get("ai_next_action"),
+        d.get("ai_reason"),d.get("ai_model")
+    ]
+    placeholders=",".join(["?"]*len(fields))
+    updates=",".join([f"{f}=excluded.{f}" for f in fields if f!="case_id"])
+    c.execute(
+        f"INSERT INTO cases({','.join(fields)}) VALUES({placeholders}) "
+        f"ON CONFLICT(case_id) DO UPDATE SET {updates}",
+        vals
+    )
     c.commit(); c.close()
 
 def row_to_case(r):
@@ -116,6 +137,215 @@ def get_tickets():
         d=dict(r); d["secondary_owners"]=json.loads(d["secondary_owners"] or "[]"); out.append(d)
     return out
 
+
+def ai_orchestrator_available():
+    return bool(os.environ.get("OPENAI_API_KEY","").strip())
+
+def candidate_context(d):
+    """Deterministic business context supplied to the AI, while preserving hard guardrails."""
+    text=d["review_text"].lower()
+    issues=d.get("issues",[])
+    safety="Safety / Hazard" in issues
+    severe=any(x in text for x in ['stopped working','not working','defective','broken'])
+    if safety: severity="Critical"
+    elif severe or len(issues)>=3: severity="High"
+    elif d.get("sentiment") in ["Negative","Mixed"] or any(i in issues for i in ['Delivery','Packaging','Customer Service','Ordering Experience','Price']): severity="Medium"
+    else: severity="Low"
+    departments=[]
+    for i in issues:
+        o=OWNERS.get(i)
+        if o and o not in departments:
+            departments.append(o)
+    return {
+        "severity_candidate": severity,
+        "primary_department_candidate": departments[0] if departments else "Customer Experience",
+        "secondary_departments_candidate": departments[1:],
+        "department_count": len(departments)
+    }
+
+def extract_response_text(resp):
+    # Responses API returns output -> message -> content -> output_text.
+    chunks=[]
+    for item in resp.get("output",[]):
+        if item.get("type")=="message":
+            for c in item.get("content",[]):
+                if c.get("type")=="output_text" and c.get("text"):
+                    chunks.append(c["text"])
+    return "\n".join(chunks).strip()
+
+def ai_orchestrator_decision(d):
+    """
+    Real LLM Orchestrator.
+    Chooses the next allowed action using case state.
+    Hard safety/verification rules are enforced after the model returns.
+    """
+    ctx=candidate_context(d)
+
+    # Mandatory guardrails override any model choice.
+    if d.get("confidence") is not None and d["confidence"] < 70:
+        return {
+            "mode":"GUARDRAIL",
+            "next_action":"REQUEST_VERIFICATION",
+            "primary_department":ctx["primary_department_candidate"],
+            "secondary_departments":ctx["secondary_departments_candidate"],
+            "requires_human":True,
+            "reason":"Confidence is below the mandatory 70% threshold; human verification is required.",
+            "model":"hard_guardrail"
+        }
+    if "Safety / Hazard" in d.get("issues",[]):
+        return {
+            "mode":"GUARDRAIL",
+            "next_action":"REQUEST_APPROVAL",
+            "primary_department":"Product / Seller Management + Management",
+            "secondary_departments":ctx["secondary_departments_candidate"],
+            "requires_human":True,
+            "reason":"Safety/hazard signal detected. Critical cases must escalate and cannot auto-close.",
+            "model":"hard_guardrail"
+        }
+
+    key=os.environ.get("OPENAI_API_KEY","").strip()
+    model=os.environ.get("OPENAI_MODEL","gpt-6-luna").strip() or "gpt-6-luna"
+
+    if not key:
+        # Deterministic fallback lets classroom demo continue without secrets/API access.
+        if ctx["severity_candidate"] in ["High","Critical"] or ctx["department_count"]>=3:
+            action="REQUEST_APPROVAL"
+            human=True
+        else:
+            action="ROUTE_AND_ACT"
+            human=False
+        return {
+            "mode":"FALLBACK_DETERMINISTIC",
+            "next_action":action,
+            "primary_department":ctx["primary_department_candidate"],
+            "secondary_departments":ctx["secondary_departments_candidate"],
+            "requires_human":human,
+            "reason":"OpenAI API key is not configured; existing verified business rules selected the next action.",
+            "model":"none"
+        }
+
+    allowed=["ROUTE_AND_ACT","REQUEST_VERIFICATION","REQUEST_APPROVAL","ESCALATE"]
+    prompt = {
+        "goal":"Safely progress this customer-feedback case toward a resolved and auditable outcome.",
+        "constraints":[
+            "Choose exactly one next_action from the allowed_actions.",
+            "Do not issue refunds, penalties, price changes, seller sanctions, or customer messages.",
+            "Prefer human oversight when business risk is consequential or evidence is ambiguous.",
+            "Use the provided case state and candidate business context.",
+            "Return JSON only. Do not include markdown."
+        ],
+        "allowed_actions":allowed,
+        "case_state":{
+            "case_id":d.get("case_id"),
+            "review_text":d.get("review_text"),
+            "sentiment":d.get("sentiment"),
+            "confidence":d.get("confidence"),
+            "issues":d.get("issues",[]),
+            "current_stage":d.get("current_stage"),
+            "replan_count":d.get("replan_count",0),
+            "previous_human_decision":d.get("human_decision"),
+            **ctx
+        },
+        "required_json":{
+            "next_action":"one allowed action",
+            "primary_department":"string",
+            "secondary_departments":["string"],
+            "requires_human":"boolean",
+            "reason":"one concise managerial rationale"
+        }
+    }
+
+    body=json.dumps({
+        "model":model,
+        "input":[
+            {
+                "role":"system",
+                "content":"You are the Voice360 AI Orchestrator. Select the next business-process action from the allowed set. Return only valid JSON."
+            },
+            {
+                "role":"user",
+                "content":json.dumps(prompt)
+            }
+        ],
+        "max_output_tokens":300
+    }).encode("utf-8")
+
+    req=urllib.request.Request(
+        "https://api.openai.com/v1/responses",
+        data=body,
+        method="POST",
+        headers={
+            "Authorization":f"Bearer {key}",
+            "Content-Type":"application/json"
+        }
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            resp=json.loads(r.read().decode("utf-8"))
+        raw=extract_response_text(resp)
+        # tolerate accidental code fences while still requiring a JSON object
+        raw=raw.strip()
+        if raw.startswith("```"):
+            raw=raw.replace("```json","").replace("```","").strip()
+        decision=json.loads(raw)
+        action=decision.get("next_action")
+        if action not in allowed:
+            raise ValueError("AI returned unsupported next_action")
+        return {
+            "mode":"AI",
+            "next_action":action,
+            "primary_department":decision.get("primary_department") or ctx["primary_department_candidate"],
+            "secondary_departments":decision.get("secondary_departments") if isinstance(decision.get("secondary_departments"),list) else ctx["secondary_departments_candidate"],
+            "requires_human":bool(decision.get("requires_human")),
+            "reason":str(decision.get("reason") or "AI selected the next workflow action."),
+            "model":model
+        }
+    except Exception as e:
+        if ctx["severity_candidate"] in ["High","Critical"] or ctx["department_count"]>=3:
+            action="REQUEST_APPROVAL"; human=True
+        else:
+            action="ROUTE_AND_ACT"; human=False
+        return {
+            "mode":"FALLBACK_DETERMINISTIC",
+            "next_action":action,
+            "primary_department":ctx["primary_department_candidate"],
+            "secondary_departments":ctx["secondary_departments_candidate"],
+            "requires_human":human,
+            "reason":f"AI call unavailable; safe deterministic fallback used ({type(e).__name__}).",
+            "model":model
+        }
+
+def run_orchestrator(d):
+    decision=ai_orchestrator_decision(d)
+    d["ai_orchestrator_mode"]=decision["mode"]
+    d["ai_next_action"]=decision["next_action"]
+    d["ai_reason"]=decision["reason"]
+    d["ai_model"]=decision["model"]
+    d["updated_at"]=now()
+    save(d)
+    log(
+        d["case_id"],
+        "AI Orchestrator / Supervisor",
+        "SELECT_NEXT_ACTION",
+        f"{decision['next_action']} | {decision['reason']}",
+        f"OpenAI Responses API ({decision['model']})" if decision["mode"]=="AI" else decision["mode"],
+        "ORCHESTRATION"
+    )
+
+    if decision["next_action"]=="REQUEST_VERIFICATION":
+        d.update(status="PENDING_VERIFICATION",current_stage="HUMAN_VERIFICATION",human_approval="REQUIRED",final_outcome="Paused for human verification.",updated_at=now())
+        save(d)
+        log(d["case_id"],"Orchestrator / Supervisor","PAUSE_FOR_VERIFICATION",decision["reason"],"AI decision + guardrails","HUMAN_VERIFICATION")
+        return get_case(d["case_id"])
+
+    # Triage remains a transparent business tool. We pass AI routing hints into the case.
+    d["_ai_primary"]=decision.get("primary_department")
+    d["_ai_secondary"]=decision.get("secondary_departments",[])
+    d["_ai_requires_human"]=decision.get("requires_human",False)
+    d["_ai_action"]=decision["next_action"]
+    return triage(d)
+
 def create_case(review_text,source="Web Form",rating=None):
     cid="FV360-"+datetime.now().strftime("%H%M%S")+"-"+uuid.uuid4().hex[:5].upper()
     d={"case_id":cid,"created_at":now(),"updated_at":now(),"review_text":review_text.strip(),"source":source,"rating":rating,
@@ -142,11 +372,7 @@ def intelligence(d):
     elif len(text)<12: confidence=60; exception="LOW_CONFIDENCE"
     d.update(sentiment=sentiment,confidence=confidence,issues=issues,exception_type=exception,current_stage="CONFIDENCE_CHECK",updated_at=now())
     save(d); log(d["case_id"],"Customer Intelligence Agent","NLP_ANALYSIS",f"Sentiment={sentiment}; Issues={', '.join(issues) or 'None'}; Confidence={confidence}","Rule-based NLP","ANALYZE")
-    if confidence<70:
-        d.update(status="PENDING_VERIFICATION",current_stage="HUMAN_VERIFICATION",human_approval="REQUIRED",final_outcome="Paused for human verification.",updated_at=now())
-        save(d); log(d["case_id"],"Orchestrator / Supervisor","PAUSE_FOR_VERIFICATION",f"Confidence {confidence}% below threshold","Confidence gateway","HUMAN_VERIFICATION")
-        return get_case(d["case_id"])
-    return triage(d)
+    return run_orchestrator(d)
 
 def triage(d):
     text=d["review_text"].lower(); issues=d["issues"]
@@ -160,11 +386,15 @@ def triage(d):
     for i in issues:
         o=OWNERS.get(i)
         if o and o not in depts: depts.append(o)
-    primary=depts[0] if depts else "Customer Experience"
+    primary=d.pop("_ai_primary",None) or (depts[0] if depts else "Customer Experience")
+    ai_secondaries=d.pop("_ai_secondary",None)
+    secondaries=ai_secondaries if isinstance(ai_secondaries,list) and ai_secondaries else depts[1:]
+    ai_requires=bool(d.pop("_ai_requires_human",False))
+    ai_action=d.pop("_ai_action",None)
     rec=" ".join(ACTIONS[i] for i in issues if i in ACTIONS) or "Monitor and record customer feedback."
-    approval=sev in ["High","Critical"] or len(depts)>=3
-    d.update(severity=sev,primary_department=primary,secondary_departments=depts[1:],recommended_action=rec,current_stage="APPROVAL_CHECK",updated_at=now())
-    save(d); log(d["case_id"],"Triage & Routing Agent","TRIAGE_AND_ROUTE",f"Severity={sev}; Primary={primary}; Approval={approval}","Routing + severity KB","TRIAGE")
+    approval=sev in ["High","Critical"] or len(depts)>=3 or ai_requires or ai_action in ["REQUEST_APPROVAL","ESCALATE"]
+    d.update(severity=sev,primary_department=primary,secondary_departments=secondaries,recommended_action=rec,current_stage="APPROVAL_CHECK",updated_at=now())
+    save(d); log(d["case_id"],"Triage & Routing Agent","TRIAGE_AND_ROUTE",f"Severity={sev}; Primary={primary}; Approval={approval}; AI={d.get('ai_next_action')}","Routing + severity KB","TRIAGE")
     if approval:
         d.update(status="PENDING_APPROVAL",current_stage="HUMAN_APPROVAL",human_approval="REQUIRED",final_outcome="Paused for manager approval.",updated_at=now())
         save(d); log(d["case_id"],"Orchestrator / Supervisor","PAUSE_FOR_APPROVAL",f"Approval required for severity={sev} / departments={len(depts)}","Approval policy","HUMAN_APPROVAL")

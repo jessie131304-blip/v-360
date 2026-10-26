@@ -27,9 +27,9 @@
 <div class="panel"><h3>Agentic Readiness</h3><div class="readiness">
 <div>✓ Goal-directed</div><div>✓ Multi-stage</div><div>✓ Tool use</div><div>✓ Memory/state</div><div>✓ Human oversight</div><div>✓ Re-planning</div>
 </div></div>
-<div class="panel"><h3>Top Issues</h3><div id="topIssues"></div></div>
+<div class="panel"><h3>AI Orchestrator Status</h3><div id="aiStatus"></div><p class="muted">The AI selects the next allowed action. Mandatory safety and low-confidence guardrails can override the model.</p></div>
 </div>
-<div class="panel"><h3>Recent Cases</h3><div class="tablewrap"><table><thead><tr><th>Case</th><th>Sentiment</th><th>Issues</th><th>Severity</th><th>Owner</th><th>Stage</th><th>Status</th></tr></thead><tbody id="recent"></tbody></table></div></div>
+<div class="grid2"><div class="panel"><h3>Top Issues</h3><div id="topIssues"></div></div><div class="panel"><h3>How AI Orchestration Works</h3><p><b>Observe state → choose allowed action → execute tool → log decision → human oversight when required.</b></p><p class="muted">Allowed actions: Route & Act, Request Verification, Request Approval, Escalate.</p></div></div><div class="panel"><h3>Recent Cases</h3><div class="tablewrap"><table><thead><tr><th>Case</th><th>Sentiment</th><th>Issues</th><th>Severity</th><th>Owner</th><th>Stage</th><th>Status</th></tr></thead><tbody id="recent"></tbody></table></div></div>
 </section>
 
 <section id="new" class="view">

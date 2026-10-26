@@ -310,7 +310,13 @@ def ai_orchestrator_decision(d):
             "reason":str(decision.get("reason") or "Gemini selected the next workflow action."),
             "model":model
         }
-    except Exception as e:
+    except urllib.error.HTTPError as e:
+        try:
+            body = e.read().decode("utf-8", errors="replace")
+        except Exception:
+            body = ""
+        detail = body[:500].replace("\n"," ").strip()
+        print(f"[Gemini HTTPError] status={e.code} reason={e.reason} body={detail}", flush=True)
         if ctx["severity_candidate"] in ["High","Critical"] or ctx["department_count"]>=3:
             action="REQUEST_APPROVAL"; human=True
         else:
@@ -321,7 +327,22 @@ def ai_orchestrator_decision(d):
             "primary_department":ctx["primary_department_candidate"],
             "secondary_departments":ctx["secondary_departments_candidate"],
             "requires_human":human,
-            "reason":f"AI call unavailable; safe deterministic fallback used ({type(e).__name__}).",
+            "reason":f"Gemini HTTP {e.code}: {detail or e.reason}",
+            "model":model
+        }
+    except Exception as e:
+        print(f"[Gemini Error] {type(e).__name__}: {e}", flush=True)
+        if ctx["severity_candidate"] in ["High","Critical"] or ctx["department_count"]>=3:
+            action="REQUEST_APPROVAL"; human=True
+        else:
+            action="ROUTE_AND_ACT"; human=False
+        return {
+            "mode":"FALLBACK_DETERMINISTIC",
+            "next_action":action,
+            "primary_department":ctx["primary_department_candidate"],
+            "secondary_departments":ctx["secondary_departments_candidate"],
+            "requires_human":human,
+            "reason":f"Gemini call failed: {type(e).__name__}: {str(e)[:300]}",
             "model":model
         }
 

@@ -1,12 +1,81 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Flipkart Voice360</title><link rel="stylesheet" href="styles.css"></head><body>
-<div class="shell"><aside><div class="brand"><div class="mark">V360</div><div><h1>Flipkart Voice360</h1><p>Agentic Voice-of-Customer</p></div></div>
-<button class="nav active" data-v="dashboard">Executive Dashboard</button><button class="nav" data-v="new">New Review / Trigger</button><button class="nav" data-v="cases">Active Cases</button><button class="nav" data-v="activity">Agent Activity</button><button class="nav" data-v="verification">Human Verification</button><button class="nav" data-v="approval">Human Approval</button><button class="nav" data-v="audit">Audit Trail</button><button class="nav" data-v="kpi">KPI / Validation</button></aside>
-<main><header><div><h2 id="title">Executive Dashboard</h2><p>Academic prototype • simulated/public review data only</p></div><span>WORKING LOCAL PROTOTYPE</span></header>
-<section id="dashboard" class="view active"><div id="cards" class="cards"></div><div class="panel"><h3>Recent Cases</h3><div class="tablewrap"><table><thead><tr><th>Case</th><th>Sentiment</th><th>Issues</th><th>Severity</th><th>Owner</th><th>Stage</th><th>Status</th></tr></thead><tbody id="recent"></tbody></table></div></div></section>
-<section id="new" class="view"><div class="panel"><h3>Submit a Review</h3><textarea id="review" rows="6" placeholder="Paste customer review..."></textarea><div class="twocol"><input id="source" value="Demo Web Form"><input id="rating" type="number" min="1" max="5" placeholder="Rating"></div><div class="actions"><button class="primary" id="submit">Submit Review</button><button id="sample">Load Sample</button></div></div><div class="panel"><h3>Workflow Output</h3><pre id="out">No review submitted.</pre></div></section>
-<section id="cases" class="view"><div class="panel"><h3>Active Cases</h3><div class="tablewrap"><table><thead><tr><th>Case</th><th>Review</th><th>Sentiment</th><th>Severity</th><th>Owner</th><th>Stage</th><th>Status</th></tr></thead><tbody id="casebody"></tbody></table></div></div></section>
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Flipkart Voice360</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+<div class="disclaimer">Academic prototype using simulated/public-style review data. Not connected to Flipkart internal systems.</div>
+<div class="shell">
+<aside>
+<div class="brand"><div class="mark">V360</div><div><h1>Flipkart Voice360</h1><p>Agentic Voice-of-Customer</p></div></div>
+<button class="nav active" data-v="dashboard">Executive Dashboard</button>
+<button class="nav" data-v="new">New Review / Trigger</button>
+<button class="nav" data-v="cases">Active Cases</button>
+<button class="nav" data-v="details">Case Details</button>
+<button class="nav" data-v="activity">Agent Activity</button>
+<button class="nav" data-v="verification">Human Verification</button>
+<button class="nav" data-v="approval">Human Approval</button>
+<button class="nav" data-v="tickets">Action Tickets</button>
+<button class="nav" data-v="audit">Audit Trail</button>
+<button class="nav" data-v="kpi">KPI / Validation</button>
+<button class="nav" data-v="about">About / Architecture</button>
+</aside>
+<main>
+<header><div><h2 id="title">Executive Dashboard</h2><p>End-to-end case orchestration from review trigger to auditable outcome</p></div><span>LIVE ACADEMIC PROTOTYPE</span></header>
+
+<section id="dashboard" class="view active">
+<div id="cards" class="cards"></div>
+<div class="grid2">
+<div class="panel"><h3>Agentic Readiness</h3><div class="readiness">
+<div>✓ Goal-directed</div><div>✓ Multi-stage</div><div>✓ Tool use</div><div>✓ Memory/state</div><div>✓ Human oversight</div><div>✓ Re-planning</div>
+</div></div>
+<div class="panel"><h3>Top Issues</h3><div id="topIssues"></div></div>
+</div>
+<div class="panel"><h3>Recent Cases</h3><div class="tablewrap"><table><thead><tr><th>Case</th><th>Sentiment</th><th>Issues</th><th>Severity</th><th>Owner</th><th>Stage</th><th>Status</th></tr></thead><tbody id="recent"></tbody></table></div></div>
+</section>
+
+<section id="new" class="view">
+<div class="panel"><h3>Submit a Review</h3><textarea id="review" rows="6" placeholder="Paste customer review..."></textarea><div class="twocol"><input id="source" value="Demo Web Form"><input id="rating" type="number" min="1" max="5" placeholder="Rating"></div><div class="actions"><button class="primary" id="submit">Submit Review</button><button id="sample">Load Sample</button></div></div>
+<div class="panel"><h3>Workflow Output</h3><pre id="out">No review submitted.</pre></div>
+</section>
+
+<section id="cases" class="view"><div class="panel"><h3>Active Cases</h3><div class="tablewrap"><table><thead><tr><th>Case</th><th>Review</th><th>Sentiment</th><th>Severity</th><th>Owner</th><th>Stage</th><th>Status</th><th></th></tr></thead><tbody id="casebody"></tbody></table></div></div></section>
+
+<section id="details" class="view"><div class="panel"><h3>Case Details</h3><select id="detailSelect"></select><div id="detailCard" class="detailgrid"></div></div></section>
+
 <section id="activity" class="view"><div class="panel"><h3>Agent Activity</h3><select id="caseSelect"></select><div id="timeline" class="timeline"></div></div></section>
+
 <section id="verification" class="view"><div class="panel"><h3>Human Verification Queue</h3><div id="verifyList"></div></div></section>
+
 <section id="approval" class="view"><div class="panel"><h3>Human Approval Queue</h3><div id="approveList"></div></div></section>
+
+<section id="tickets" class="view"><div class="panel"><h3>Action Tickets</h3><div class="tablewrap"><table><thead><tr><th>Ticket</th><th>Case</th><th>Owner</th><th>Priority</th><th>Action</th><th>Status</th><th>Created</th></tr></thead><tbody id="ticketbody"></tbody></table></div></div></section>
+
 <section id="audit" class="view"><div class="panel"><h3>Audit Trail</h3><div class="tablewrap"><table><thead><tr><th>Time</th><th>Case</th><th>Agent</th><th>Action</th><th>Decision</th><th>Tool</th><th>Stage</th></tr></thead><tbody id="auditbody"></tbody></table></div></div></section>
-<section id="kpi" class="view"><div id="kpicards" class="cards"></div><div class="panel"><h3>Prototype Evidence</h3><p>These counts are generated from actual local runs stored in SQLite.</p></div></section></main></div><script src="app.js"></script></body></html>
+
+<section id="kpi" class="view">
+<div id="kpicards" class="cards"></div>
+<div class="grid2">
+<div class="panel"><h3>Prototype Metrics</h3><div id="kpiNotes"></div></div>
+<div class="panel"><h3>Validation Targets</h3><table><tbody>
+<tr><td>Routing accuracy</td><td>≥ 85%</td></tr>
+<tr><td>Critical escalation</td><td>100%</td></tr>
+<tr><td>Straight-through processing</td><td>≥ 60%</td></tr>
+<tr><td>Audit coverage</td><td>100%</td></tr>
+<tr><td>Cycle-time reduction</td><td>≥ 50% preliminary target</td></tr>
+</tbody></table><p class="muted">Targets are not achieved results. Final values must come from the 17-case validation.</p></div>
+</div></section>
+
+<section id="about" class="view">
+<div class="panel"><h3>Agent Architecture</h3><div class="architecture">
+<div class="agent"><b>Orchestrator / Supervisor</b><span>Chooses next stage, handles approvals, exceptions and closure.</span></div>
+<div class="agent"><b>Intake & Context Agent</b><span>Creates Case ID, validates input and initializes memory.</span></div>
+<div class="agent"><b>Customer Intelligence Agent</b><span>Sentiment, issue detection and confidence analysis.</span></div>
+<div class="agent"><b>Triage & Routing Agent</b><span>Severity, department ownership and escalation decisions.</span></div>
+<div class="agent"><b>Resolution / Action Agent</b><span>Recommended action, re-planning and ticket creation.</span></div>
+</div></div>
+<div class="grid2">
+<div class="panel"><h3>Tools / Data Sources</h3><ul><li>SQLite case database</li><li>Routing & severity rule base</li><li>Human approval controls</li><li>Simulated ticket tool</li><li>Audit log and dashboard</li></ul></div>
+<div class="panel"><h3>Autonomy Levels</h3><ul><li><b>Fully autonomous:</b> case creation, logging</li><li><b>Act then report:</b> NLP analysis, low-risk routing</li><li><b>Suggest:</b> ambiguous classification</li><li><b>Approve:</b> high/critical actions</li></ul></div>
+</div>
+<div class="panel"><h3>Responsible AI & Limitations</h3><ul><li>No live Flipkart internal integration.</li><li>No confidential customer data required.</li><li>No automated refunds, penalties, pricing changes or external messages.</li><li>High-risk and ambiguous cases require human oversight.</li><li>Rule-based NLP may struggle with slang, multilingual reviews and subtle sarcasm.</li><li>Free hosting persistence may reset after restart/redeploy.</li></ul></div>
+</section>
+</main></div><script src="app.js"></script></body></html>

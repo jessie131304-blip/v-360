@@ -12,6 +12,6 @@ This build adds a real LLM Orchestrator to the existing academic prototype.
 Rule-based NLP → LLM Orchestrator → deterministic safety guardrails → business tools → human oversight → audit trail.
 
 ## API
-Uses the OpenAI Responses API when `OPENAI_API_KEY` is configured.
+Uses the Gemini Interactions API when `GEMINI_API_KEY` is configured.
 
 If no key/API is available, the prototype remains runnable in safe deterministic fallback mode.

@@ -139,7 +139,7 @@ def get_tickets():
 
 
 def ai_orchestrator_available():
-    return bool(os.environ.get("OPENAI_API_KEY","").strip())
+    return bool(os.environ.get("GEMINI_API_KEY","").strip())
 
 def candidate_context(d):
     """Deterministic business context supplied to the AI, while preserving hard guardrails."""
@@ -203,8 +203,8 @@ def ai_orchestrator_decision(d):
             "model":"hard_guardrail"
         }
 
-    key=os.environ.get("OPENAI_API_KEY","").strip()
-    model=os.environ.get("OPENAI_MODEL","gpt-6-luna").strip() or "gpt-6-luna"
+    key=os.environ.get("GEMINI_API_KEY","").strip()
+    model=os.environ.get("GEMINI_MODEL","gemini-3.7-flash").strip() or "gemini-3.7-flash"
 
     if not key:
         # Deterministic fallback lets classroom demo continue without secrets/API access.
@@ -220,7 +220,7 @@ def ai_orchestrator_decision(d):
             "primary_department":ctx["primary_department_candidate"],
             "secondary_departments":ctx["secondary_departments_candidate"],
             "requires_human":human,
-            "reason":"OpenAI API key is not configured; existing verified business rules selected the next action.",
+            "reason":"Gemini API key is not configured; existing verified business rules selected the next action.",
             "model":"none"
         }
 
@@ -255,27 +255,28 @@ def ai_orchestrator_decision(d):
         }
     }
 
+    gemini_input = (
+        "You are the Voice360 AI Orchestrator. "
+        "Select exactly one next workflow action from the allowed set. "
+        "Do not issue refunds, penalties, price changes, seller sanctions, or customer messages. "
+        "Prefer human oversight when risk is consequential or evidence is ambiguous. "
+        "Return ONLY valid JSON with keys: next_action, primary_department, "
+        "secondary_departments, requires_human, reason.\n\n"
+        + json.dumps(prompt)
+    )
+
     body=json.dumps({
         "model":model,
-        "input":[
-            {
-                "role":"system",
-                "content":"You are the Voice360 AI Orchestrator. Select the next business-process action from the allowed set. Return only valid JSON."
-            },
-            {
-                "role":"user",
-                "content":json.dumps(prompt)
-            }
-        ],
-        "max_output_tokens":300
+        "input":gemini_input,
+        "store":False
     }).encode("utf-8")
 
     req=urllib.request.Request(
-        "https://api.openai.com/v1/responses",
+        "https://generativelanguage.googleapis.com/v1beta/interactions",
         data=body,
         method="POST",
         headers={
-            "Authorization":f"Bearer {key}",
+            "x-goog-api-key":key,
             "Content-Type":"application/json"
         }
     )
@@ -283,22 +284,30 @@ def ai_orchestrator_decision(d):
     try:
         with urllib.request.urlopen(req, timeout=20) as r:
             resp=json.loads(r.read().decode("utf-8"))
-        raw=extract_response_text(resp)
-        # tolerate accidental code fences while still requiring a JSON object
-        raw=raw.strip()
+
+        chunks=[]
+        for step in resp.get("steps",[]):
+            if step.get("type")=="model_output":
+                for c in step.get("content",[]):
+                    if c.get("type")=="text" and c.get("text"):
+                        chunks.append(c["text"])
+        raw="\n".join(chunks).strip()
+
         if raw.startswith("```"):
             raw=raw.replace("```json","").replace("```","").strip()
+
         decision=json.loads(raw)
         action=decision.get("next_action")
         if action not in allowed:
-            raise ValueError("AI returned unsupported next_action")
+            raise ValueError("Gemini returned unsupported next_action")
+
         return {
             "mode":"AI",
             "next_action":action,
             "primary_department":decision.get("primary_department") or ctx["primary_department_candidate"],
             "secondary_departments":decision.get("secondary_departments") if isinstance(decision.get("secondary_departments"),list) else ctx["secondary_departments_candidate"],
             "requires_human":bool(decision.get("requires_human")),
-            "reason":str(decision.get("reason") or "AI selected the next workflow action."),
+            "reason":str(decision.get("reason") or "Gemini selected the next workflow action."),
             "model":model
         }
     except Exception as e:
@@ -329,7 +338,7 @@ def run_orchestrator(d):
         "AI Orchestrator / Supervisor",
         "SELECT_NEXT_ACTION",
         f"{decision['next_action']} | {decision['reason']}",
-        f"OpenAI Responses API ({decision['model']})" if decision["mode"]=="AI" else decision["mode"],
+        f"Gemini Interactions API ({decision['model']})" if decision["mode"]=="AI" else decision["mode"],
         "ORCHESTRATION"
     )
 

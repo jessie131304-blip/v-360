@@ -7,6 +7,7 @@ import engine
 BASE=os.path.dirname(__file__)
 WEB=BASE
 engine.init_db()
+engine.seed_demo_cases()
 
 class H(BaseHTTPRequestHandler):
     def send_json(self,obj,status=200):

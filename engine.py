@@ -217,6 +217,66 @@ def human_decision(cid,decision,note="",corrected_sentiment=None,corrected_issue
         return get_case(cid)
     raise ValueError("Use VERIFY, CORRECT, APPROVE, MODIFY or REJECT")
 
+def seed_demo_cases():
+    c = db()
+    count = c.execute("SELECT COUNT(*) FROM cases").fetchone()[0]
+    c.close()
+    if count > 0:
+        return
+
+    demo_reviews = [
+        ("The product is excellent and arrived on time.", "Demo Seed", 5),
+        ("Delivery was late but the product is good.", "Demo Seed", 3),
+        ("The box was damaged and delivery was delayed.", "Demo Seed", 2),
+        ("This product is overpriced and not worth the price.", "Demo Seed", 2),
+        ("Customer support ignored me and there was no response.", "Demo Seed", 1),
+        ("The camera and battery performance are excellent.", "Demo Seed", 5),
+        ("Payment failed during checkout.", "Demo Seed", 1),
+        ("Good product but the packaging was poor.", "Demo Seed", 3),
+        ("The phone stopped working after two days.", "Demo Seed", 1),
+        ("Delivery was late, package damaged, and support ignored me.", "Demo Seed", 1),
+        ("The product is okay, nothing special.", "Demo Seed", 3),
+        ("Nice design but expensive.", "Demo Seed", 3),
+        ("Amazing service. Only took them ten days to deliver.", "Demo Seed", 1),
+        ("The phone is overheating and smells like burning while charging.", "Demo Seed", 1),
+        ("The phone stopped working, delivery was late and customer support never responded.", "Demo Seed", 1),
+        ("Worst support. Refund unresolved and delivery delayed.", "Demo Seed", 1),
+        ("Very good value for money and smooth performance.", "Demo Seed", 5),
+        ("Package arrived damaged but delivery was fast.", "Demo Seed", 3),
+        ("Checkout was smooth but the product feels expensive.", "Demo Seed", 3),
+        ("The display is great, but customer support took too long to respond.", "Demo Seed", 3),
+    ]
+
+    created = []
+    for review, source, rating in demo_reviews:
+        created.append(create_case(review, source, rating))
+
+    # Make one low-confidence case explicitly verified so the dashboard also shows a completed human loop.
+    for d in created:
+        if d.get("status") == "PENDING_VERIFICATION":
+            try:
+                human_decision(
+                    d["case_id"],
+                    "CORRECT",
+                    "Demo reviewer corrected ambiguous/sarcastic classification.",
+                    "Negative",
+                    ["Delivery"] if "deliver" in d["review_text"].lower() else d.get("issues", [])
+                )
+                break
+            except Exception:
+                pass
+
+    # Make one high case go through reject -> re-plan -> approve to show re-planning evidence.
+    for d in created:
+        current = get_case(d["case_id"])
+        if current and current.get("status") == "PENDING_APPROVAL" and current.get("severity") == "High":
+            try:
+                human_decision(current["case_id"], "REJECT", "Initial action too generic for demo.")
+                human_decision(current["case_id"], "APPROVE", "Re-planned action approved for demo.")
+                break
+            except Exception:
+                pass
+
 def kpis():
     c=db()
     total=c.execute("SELECT COUNT(*) FROM cases").fetchone()[0]

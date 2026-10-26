@@ -5,7 +5,7 @@ import json, os, mimetypes
 import engine
 
 BASE=os.path.dirname(__file__)
-WEB=os.path.join(BASE,"web")
+WEB=BASE
 engine.init_db()
 
 class H(BaseHTTPRequestHandler):

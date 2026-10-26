@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: flipkart-voice360
+    runtime: python
+    plan: free
+    buildCommand: ""
+    startCommand: python3 server.py
+    healthCheckPath: /
+    autoDeploy: true

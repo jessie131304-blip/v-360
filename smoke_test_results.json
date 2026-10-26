@@ -1,0 +1,207 @@
+{
+  "cases": [
+    {
+      "id": "T01",
+      "status": "CLOSED",
+      "stage": "CLOSED",
+      "sentiment": "Mixed",
+      "confidence": 78.0,
+      "severity": "Medium",
+      "issues": [
+        "Delivery"
+      ]
+    },
+    {
+      "id": "T02",
+      "status": "CLOSED",
+      "stage": "CLOSED",
+      "sentiment": "Positive",
+      "confidence": 84.0,
+      "severity": "Low",
+      "issues": []
+    },
+    {
+      "id": "T03",
+      "status": "CLOSED",
+      "stage": "CLOSED",
+      "sentiment": "Negative",
+      "confidence": 84.0,
+      "severity": "Medium",
+      "issues": [
+        "Delivery",
+        "Packaging"
+      ]
+    },
+    {
+      "id": "T04",
+      "status": "CLOSED",
+      "stage": "CLOSED",
+      "sentiment": "Mixed",
+      "confidence": 78.0,
+      "severity": "Medium",
+      "issues": [
+        "Price"
+      ]
+    },
+    {
+      "id": "T05",
+      "status": "CLOSED",
+      "stage": "CLOSED",
+      "sentiment": "Negative",
+      "confidence": 84.0,
+      "severity": "Medium",
+      "issues": [
+        "Customer Service"
+      ]
+    },
+    {
+      "id": "T06",
+      "status": "CLOSED",
+      "stage": "CLOSED",
+      "sentiment": "Positive",
+      "confidence": 84.0,
+      "severity": "Low",
+      "issues": [
+        "Product Features"
+      ]
+    },
+    {
+      "id": "T07",
+      "status": "CLOSED",
+      "stage": "CLOSED",
+      "sentiment": "Negative",
+      "confidence": 84.0,
+      "severity": "Medium",
+      "issues": [
+        "Ordering Experience"
+      ]
+    },
+    {
+      "id": "T08",
+      "status": "CLOSED",
+      "stage": "CLOSED",
+      "sentiment": "Mixed",
+      "confidence": 78.0,
+      "severity": "Medium",
+      "issues": [
+        "Packaging"
+      ]
+    },
+    {
+      "id": "T09",
+      "status": "PENDING_APPROVAL",
+      "stage": "HUMAN_APPROVAL",
+      "sentiment": "Negative",
+      "confidence": 84.0,
+      "severity": "High",
+      "issues": [
+        "Product Quality"
+      ]
+    },
+    {
+      "id": "T10",
+      "status": "CLOSED",
+      "stage": "CLOSED",
+      "sentiment": "Negative",
+      "confidence": 84.0,
+      "severity": "Medium",
+      "issues": [
+        "Delivery",
+        "Customer Service"
+      ]
+    },
+    {
+      "id": "T11",
+      "status": "PENDING_VERIFICATION",
+      "stage": "HUMAN_VERIFICATION",
+      "sentiment": "Neutral",
+      "confidence": 58.0,
+      "severity": null,
+      "issues": []
+    },
+    {
+      "id": "T12",
+      "status": "CLOSED",
+      "stage": "CLOSED",
+      "sentiment": "Mixed",
+      "confidence": 78.0,
+      "severity": "Medium",
+      "issues": [
+        "Price",
+        "Product Features"
+      ]
+    },
+    {
+      "id": "T13",
+      "status": "PENDING_VERIFICATION",
+      "stage": "HUMAN_VERIFICATION",
+      "sentiment": "Positive",
+      "confidence": 55.0,
+      "severity": null,
+      "issues": []
+    },
+    {
+      "id": "T14",
+      "status": "PENDING_APPROVAL",
+      "stage": "HUMAN_APPROVAL",
+      "sentiment": "Neutral",
+      "confidence": 84.0,
+      "severity": "Critical",
+      "issues": [
+        "Safety / Hazard"
+      ]
+    },
+    {
+      "id": "T15",
+      "status": "PENDING_APPROVAL",
+      "stage": "HUMAN_APPROVAL",
+      "sentiment": "Negative",
+      "confidence": 84.0,
+      "severity": "High",
+      "issues": [
+        "Product Quality",
+        "Delivery",
+        "Customer Service"
+      ]
+    },
+    {
+      "id": "T16",
+      "status": "ESCALATED",
+      "stage": "INVALID_INPUT",
+      "sentiment": null,
+      "confidence": null,
+      "severity": null,
+      "issues": []
+    },
+    {
+      "id": "T17",
+      "status": "CLOSED",
+      "stage": "CLOSED",
+      "sentiment": "Negative",
+      "confidence": 84.0,
+      "severity": "Medium",
+      "issues": [
+        "Delivery",
+        "Customer Service"
+      ]
+    }
+  ],
+  "sarcasm_after_correction": {
+    "status": "CLOSED",
+    "stage": "CLOSED",
+    "sentiment": "Negative",
+    "issues": [
+      "Delivery"
+    ]
+  },
+  "reject_replan": {
+    "status": "PENDING_APPROVAL",
+    "replan_count": 1,
+    "stage": "HUMAN_APPROVAL"
+  },
+  "approve_after_replan": {
+    "status": "CLOSED",
+    "stage": "CLOSED",
+    "final_outcome": "Case closed with simulated action ticket TKT-FV360-152228-D406E."
+  }
+}

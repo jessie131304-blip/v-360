@@ -1,0 +1,70 @@
+[
+  {
+    "id": "T01",
+    "review": "Delivery was late but the product is good."
+  },
+  {
+    "id": "T02",
+    "review": "The product is excellent and arrived on time."
+  },
+  {
+    "id": "T03",
+    "review": "The box was damaged and delivery was delayed."
+  },
+  {
+    "id": "T04",
+    "review": "This product is overpriced and not worth the price."
+  },
+  {
+    "id": "T05",
+    "review": "Customer support ignored me and there was no response."
+  },
+  {
+    "id": "T06",
+    "review": "The camera and battery performance are excellent."
+  },
+  {
+    "id": "T07",
+    "review": "Payment failed during checkout."
+  },
+  {
+    "id": "T08",
+    "review": "Good product but the packaging was poor."
+  },
+  {
+    "id": "T09",
+    "review": "The phone stopped working after two days."
+  },
+  {
+    "id": "T10",
+    "review": "Delivery was late, package damaged, and support ignored me."
+  },
+  {
+    "id": "T11",
+    "review": "The product is okay, nothing special."
+  },
+  {
+    "id": "T12",
+    "review": "Nice design but expensive."
+  },
+  {
+    "id": "T13",
+    "review": "Amazing service. Only took them ten days to deliver."
+  },
+  {
+    "id": "T14",
+    "review": "The phone is overheating and smells like burning while charging."
+  },
+  {
+    "id": "T15",
+    "review": "The phone stopped working, delivery was late and customer support never responded."
+  },
+  {
+    "id": "T16",
+    "review": ""
+  },
+  {
+    "id": "T17",
+    "review": "Worst support. Refund unresolved and delivery delayed."
+  }
+]
